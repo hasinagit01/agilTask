@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from api.routers.auth_router import router as auth_router
 from api.routers.board_router import router as board_router
+from api.routers.user_router import router as user_router
 from config import CORS_ORIGIN, HOST, LOG_FILE, LOG_LEVEL, PORT
 from services.business_error import BusinessError
 
@@ -44,6 +45,7 @@ _TAGS_METADATA = [
     {"name": "cards",     "description": "Cartes dans une colonne, déplacement et réordonnancement"},
     {"name": "labels",    "description": "Labels de couleur créés au niveau board, attachés aux cartes"},
     {"name": "assignees", "description": "Affectation de membres à une carte"},
+    {"name": "users",     "description": "Recherche d'utilisateurs"},
 ]
 
 app = FastAPI(
@@ -67,6 +69,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(board_router)
+app.include_router(user_router)
 
 
 @app.exception_handler(HTTPException)
