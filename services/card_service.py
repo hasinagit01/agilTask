@@ -1,8 +1,11 @@
+import dataclasses
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional
 
+from database.repositories.card_assignee_repository import CardAssigneeRepository
 from database.repositories.card_repository import CardRepository
 from database.repositories.column_repository import ColumnRepository
+from database.repositories.label_repository import LabelRepository
 from models import Card
 from services.board_service import BoardService
 from services.business_error import BusinessError
@@ -11,6 +14,8 @@ from utils import ModelMapper
 _card_repo = CardRepository()
 _column_repo = ColumnRepository()
 _board_service = BoardService()
+_label_repo = LabelRepository()
+_assignee_repo = CardAssigneeRepository()
 
 
 class CardService:
@@ -101,3 +106,9 @@ class CardService:
         self._get_column_or_404(board_id, column_id, user_id, min_role="member")
         card = self.get_card(board_id, column_id, card_id, user_id)
         _card_repo.delete_by_ids([card.id])
+
+    def enrich(self, card: Card) -> Dict:
+        d = {f.name: getattr(card, f.name) for f in dataclasses.fields(card)}
+        d["labels"] = _label_repo.find_by_card(card.id)
+        d["assignees"] = _assignee_repo.find_by_card(card.id)
+        return d

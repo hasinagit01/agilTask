@@ -6,11 +6,17 @@ from ..exceptions import DuplicateError
 
 class BaseRepository(ABC):
     """Repository de base avec méthodes communes."""
-    
+
     def __init__(self, table_name: str):
         if not table_name.replace("_", "").isalnum():
             raise ValueError(f"Nom de table invalide : {table_name!r}")
         self.table_name = table_name
+
+    @staticmethod
+    def _validate_columns(*columns: str) -> None:
+        for col in columns:
+            if not col.replace("_", "").isalnum():
+                raise ValueError(f"Nom de colonne invalide : {col!r}")
     
     def execute_query(self, query: str, params: tuple = ()) -> List[Dict]:
         """Exécute une requête SELECT et retourne les résultats."""
@@ -38,6 +44,7 @@ class BaseRepository(ABC):
     
     def count(self, filters: Optional[dict] = None) -> int:
         if filters:
+            self._validate_columns(*filters.keys())
             conditions = " AND ".join(f"{col} = ?" for col in filters.keys())
             query = f"SELECT COUNT(*) as total FROM {self.table_name} WHERE {conditions}"
             rows = self.execute_query(query, tuple(filters.values()))
@@ -54,17 +61,20 @@ class BaseRepository(ABC):
         return self.execute_query(query, (limit, offset))
     
     def insert(self, data: dict) -> int:
+        self._validate_columns(*data.keys())
         columns = ", ".join(data.keys())
         placeholders = ", ".join("?" * len(data))
         query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
         return self.execute_insert(query, tuple(data.values()))
 
     def update_by_id(self, id_value: int, data: dict) -> int:
+        self._validate_columns(*data.keys())
         set_clause = ", ".join(f"{col} = ?" for col in data.keys())
         query = f"UPDATE {self.table_name} SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
         return self.execute_command(query, (*data.values(), id_value))
 
     def find_by(self, filters: dict, limit: Optional[int] = None, offset: int = 0) -> List[Dict]:
+        self._validate_columns(*filters.keys())
         conditions = " AND ".join(f"{col} = ?" for col in filters.keys())
         if limit is None:
             query = f"SELECT * FROM {self.table_name} WHERE {conditions} ORDER BY id DESC"

@@ -6,7 +6,7 @@ load_dotenv()
 HOST        = os.environ.get("API_HOST",     "localhost")
 PORT        = int(os.environ.get("API_PORT", 8000))
 LOG_LEVEL   = os.environ.get("LOG_LEVEL",    "INFO").upper()
-CORS_ORIGIN = os.environ.get("CORS_ORIGIN",  "*")
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN",  "http://localhost:5173")
 LOG_FILE    = os.environ.get("LOG_FILE",     "app.log")
 
 SECRET_KEY                = os.environ.get("SECRET_KEY", "change-me-in-production")

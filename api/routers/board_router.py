@@ -1,12 +1,9 @@
-import dataclasses
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
 from api.dependencies import get_current_user
-from database.repositories.card_assignee_repository import CardAssigneeRepository
-from database.repositories.label_repository import LabelRepository
 from models import Card, User
 from schemas.board_schema import (
     BoardListResponse,
@@ -56,27 +53,18 @@ _service = BoardService()
 _card_service = CardService()
 _label_service = LabelService()
 _assignee_service = AssigneeService()
-_label_repo = LabelRepository()
-_assignee_repo = CardAssigneeRepository()
 
 
 def _json(model, status_code: int = 200) -> JSONResponse:
     return JSONResponse(content=model.model_dump(mode="json"), status_code=status_code)
 
 
-def _enrich_card(card: Card) -> dict:
-    d = {f.name: getattr(card, f.name) for f in dataclasses.fields(card)}
-    d["labels"] = _label_repo.find_by_card(card.id)
-    d["assignees"] = _assignee_repo.find_by_card(card.id)
-    return d
-
-
 def _card_json(card: Card, status_code: int = 200) -> JSONResponse:
-    return _json(SingleCardResponse(data=CardResponse.model_validate(_enrich_card(card))), status_code)
+    return _json(SingleCardResponse(data=CardResponse.model_validate(_card_service.enrich(card))), status_code)
 
 
 def _cards_json(cards) -> JSONResponse:
-    data = [CardResponse.model_validate(_enrich_card(c)) for c in cards]
+    data = [CardResponse.model_validate(_card_service.enrich(c)) for c in cards]
     return _json(CardListResponse(data=data))
 
 
