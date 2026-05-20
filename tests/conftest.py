@@ -1,3 +1,6 @@
+import os
+os.environ["RATE_LIMIT_ENABLED"] = "false"
+
 import pytest
 import database.connection as conn_module
 from database.connection import setup_database

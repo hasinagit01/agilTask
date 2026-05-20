@@ -5,7 +5,9 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
+from api.rate_limiter import limiter
 from api.routers.auth_router import router as auth_router
 from api.routers.board_router import router as board_router
 from api.routers.user_router import router as user_router
@@ -60,6 +62,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[CORS_ORIGIN],
@@ -80,6 +84,11 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 @app.exception_handler(BusinessError)
 async def business_error_handler(request: Request, exc: BusinessError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error": str(exc)})
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(status_code=429, content={"error": "Trop de tentatives. Réessayez dans une minute."})
 
 
 if __name__ == "__main__":

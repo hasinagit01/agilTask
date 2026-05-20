@@ -77,7 +77,13 @@ def list_boards(
     current_user: User = Depends(get_current_user),
 ):
     boards = _service.list_boards(user_id=current_user.id, page=page, limit=limit)
-    return _json(BoardListResponse(data=[BoardResponse.model_validate(b) for b in boards]))
+    total  = _service.count_boards(user_id=current_user.id)
+    return _json(BoardListResponse(
+        data=[BoardResponse.model_validate(b) for b in boards],
+        total=total,
+        page=page,
+        limit=limit,
+    ))
 
 
 @router.post("/", tags=["boards"], summary="Créer un board", response_model=SingleBoardResponse, status_code=201)

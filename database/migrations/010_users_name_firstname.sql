@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN firstname TEXT;
+ALTER TABLE users ADD COLUMN name      TEXT;

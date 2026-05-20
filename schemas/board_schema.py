@@ -28,3 +28,6 @@ class SingleBoardResponse(BaseModel):
 
 class BoardListResponse(BaseModel):
     data: List[BoardResponse]
+    total: int
+    page: int
+    limit: int

@@ -9,6 +9,9 @@ LOG_LEVEL   = os.environ.get("LOG_LEVEL",    "INFO").upper()
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN",  "http://localhost:5173")
 LOG_FILE    = os.environ.get("LOG_FILE",     "app.log")
 
-SECRET_KEY                = os.environ.get("SECRET_KEY", "change-me-in-production")
-ALGORITHM                 = "HS256"
+SECRET_KEY                  = os.environ.get("SECRET_KEY", "change-me-in-production")
+ALGORITHM                   = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+
+RATE_LIMIT_ENABLED = os.environ.get("RATE_LIMIT_ENABLED", "true").lower() == "true"
+RATE_LIMIT_LOGIN   = os.environ.get("RATE_LIMIT_LOGIN",   "10/minute")

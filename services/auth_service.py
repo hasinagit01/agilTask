@@ -37,7 +37,11 @@ def decode_token(token: str) -> dict:
 
 
 class AuthService:
-    def register(self, email: str, password: str) -> User:
+    def create_token(self, user_id: int, email: str) -> str:
+        return _create_access_token(user_id, email)
+
+    def register(self, email: str, password: str,
+                 firstname: Optional[str] = None, name: Optional[str] = None) -> User:
         if len(password) < 8:
             raise BusinessError("Le mot de passe doit contenir au moins 8 caractères")
 
@@ -45,6 +49,8 @@ class AuthService:
             user_id = _user_repository.create(
                 email=email.lower().strip(),
                 password_hash=_hash_password(password),
+                firstname=firstname,
+                name=name,
             )
         except DuplicateError:
             raise BusinessError("Un compte avec cet email existe déjà", status_code=409)

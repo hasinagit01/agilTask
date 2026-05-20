@@ -9,3 +9,5 @@ class User:
     email: str
     password_hash: str
     created_at: Optional[datetime] = None
+    firstname: Optional[str] = None
+    name: Optional[str] = None
