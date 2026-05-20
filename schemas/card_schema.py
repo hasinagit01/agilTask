@@ -50,6 +50,7 @@ class CardResponse(BaseModel):
     assignees: List[AssigneeInfo] = []
     created_at: datetime
     updated_at: datetime
+    archived_at: Optional[datetime] = None
 
 
 class SingleCardResponse(BaseModel):

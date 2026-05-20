@@ -4,11 +4,13 @@ from typing import Optional
 
 
 @dataclass
-class Column:
+class ActivityLog:
     id: Optional[int]
     board_id: int
-    name: str
-    position: int
+    user_id: int
+    entity_type: str
+    entity_id: Optional[int]
+    entity_name: Optional[str]
+    action: str
+    meta: Optional[str] = None
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    archived_at: Optional[datetime] = None

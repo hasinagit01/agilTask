@@ -4,6 +4,7 @@ from .column import Column
 from .card import Card
 from .board_member import BoardMember
 from .label import Label
+from .activity_log import ActivityLog
 
 __all__ = [
     'User',
@@ -12,4 +13,5 @@ __all__ = [
     'Card',
     'BoardMember',
     'Label',
+    'ActivityLog',
 ]

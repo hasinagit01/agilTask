@@ -14,8 +14,22 @@ class ColumnRepository(BaseRepository):
         return self.update_by_id(column_id, {"name": name, "position": position})
 
     def find_by_board(self, board_id: int) -> List[Dict]:
-        query = f"SELECT * FROM {self.table_name} WHERE board_id = ? ORDER BY position ASC"
+        query = f"SELECT * FROM {self.table_name} WHERE board_id = ? AND archived_at IS NULL ORDER BY position ASC"
         return self.execute_query(query, (board_id,))
+
+    def archive(self, column_id: int) -> None:
+        self.execute_command(
+            "UPDATE columns SET archived_at = CURRENT_TIMESTAMP WHERE id = ?", (column_id,)
+        )
+
+    def unarchive(self, column_id: int) -> None:
+        self.execute_command(
+            "UPDATE columns SET archived_at = NULL WHERE id = ?", (column_id,)
+        )
+
+    def find_archived_by_board(self, board_id: int) -> List[Dict]:
+        sql = "SELECT * FROM columns WHERE board_id = ? AND archived_at IS NOT NULL ORDER BY archived_at DESC"
+        return self.execute_query(sql, (board_id,))
 
     def count_by_board(self, board_id: int) -> int:
         return self.count({"board_id": board_id})

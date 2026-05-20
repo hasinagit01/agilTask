@@ -28,8 +28,28 @@ class CardRepository(BaseRepository):
         return self.update_by_id(card_id, {"column_id": target_column_id, "position": position})
 
     def find_by_column(self, column_id: int) -> List[Dict]:
-        query = f"SELECT * FROM {self.table_name} WHERE column_id = ? ORDER BY position ASC"
+        query = f"SELECT * FROM {self.table_name} WHERE column_id = ? AND archived_at IS NULL ORDER BY position ASC"
         return self.execute_query(query, (column_id,))
+
+    def archive(self, card_id: int) -> None:
+        self.execute_command(
+            "UPDATE cards SET archived_at = CURRENT_TIMESTAMP WHERE id = ?", (card_id,)
+        )
+
+    def unarchive(self, card_id: int) -> None:
+        self.execute_command(
+            "UPDATE cards SET archived_at = NULL WHERE id = ?", (card_id,)
+        )
+
+    def find_archived_by_board(self, board_id: int) -> List[Dict]:
+        sql = """
+            SELECT c.*, col.name as column_name
+            FROM cards c
+            JOIN columns col ON c.column_id = col.id
+            WHERE col.board_id = ? AND c.archived_at IS NOT NULL
+            ORDER BY c.archived_at DESC
+        """
+        return self.execute_query(sql, (board_id,))
 
     def count_by_column(self, column_id: int) -> int:
         return self.count({"column_id": column_id})

@@ -6,11 +6,13 @@ from database.repositories.column_repository import ColumnRepository
 from database.exceptions import DuplicateError
 from models import Board, Column
 from services.business_error import BusinessError
+from services.activity_service import ActivityService
 from utils import ModelMapper
 
 _board_repo = BoardRepository()
 _column_repo = ColumnRepository()
 _member_repo = BoardMemberRepository()
+_activity_service = ActivityService()
 
 # Hiérarchie des rôles : plus le chiffre est élevé, plus le rôle est puissant
 _ROLE_LEVEL: Dict[str, int] = {"viewer": 1, "member": 2, "owner": 3}
@@ -39,7 +41,9 @@ class BoardService:
             raise BusinessError("Le nom du board doit contenir au moins 2 caractères")
         board_id = _board_repo.create(name=name, owner_id=user_id)
         _member_repo.add(board_id=board_id, user_id=user_id, role="owner")
-        return ModelMapper.to_model(Board, _board_repo.find_by({"id": board_id})[0])
+        board = ModelMapper.to_model(Board, _board_repo.find_by({"id": board_id})[0])
+        _activity_service.log(board_id, user_id, "board", board_id, board.name, "created")
+        return board
 
     def list_boards(self, user_id: int, page: int, limit: int) -> List[Board]:
         offset = (page - 1) * limit
@@ -62,7 +66,9 @@ class BoardService:
         if len(name) < 2:
             raise BusinessError("Le nom du board doit contenir au moins 2 caractères")
         _board_repo.update(board_id, name)
-        return ModelMapper.to_model(Board, _board_repo.find_by({"id": board_id})[0])
+        board = ModelMapper.to_model(Board, _board_repo.find_by({"id": board_id})[0])
+        _activity_service.log(board_id, user_id, "board", board_id, board.name, "renamed")
+        return board
 
     def delete_board(self, board_id: int, user_id: int) -> None:
         self._require_role(board_id, user_id, "owner")
@@ -87,6 +93,7 @@ class BoardService:
             _member_repo.add(board_id=board_id, user_id=new_user_id, role=role)
         except DuplicateError:
             raise BusinessError("Cet utilisateur est déjà membre du board", status_code=409)
+        _activity_service.log(board_id, requester_id, "member", new_user_id, None, "added")
 
     def update_member_role(self, board_id: int, target_user_id: int, role: str, requester_id: int) -> None:
         self._require_role(board_id, requester_id, "owner")
@@ -105,6 +112,7 @@ class BoardService:
         if _member_repo.find_role(board_id, target_user_id) is None:
             raise BusinessError("Membre non trouvé", status_code=404)
         _member_repo.remove(board_id, target_user_id)
+        _activity_service.log(board_id, requester_id, "member", target_user_id, None, "removed")
 
     # ── Colonnes ──────────────────────────────────────────────────────────────
 
@@ -115,7 +123,9 @@ class BoardService:
             raise BusinessError("Le nom de la colonne doit contenir au moins 2 caractères")
         position = _column_repo.count_by_board(board_id)
         col_id = _column_repo.create(board_id=board_id, name=name, position=position)
-        return ModelMapper.to_model(Column, _column_repo.find_by({"id": col_id})[0])
+        column = ModelMapper.to_model(Column, _column_repo.find_by({"id": col_id})[0])
+        _activity_service.log(board_id, user_id, "column", col_id, column.name, "created")
+        return column
 
     def list_columns(self, board_id: int, user_id: int) -> List[Column]:
         self._require_role(board_id, user_id, "viewer")
@@ -137,12 +147,15 @@ class BoardService:
             raise BusinessError("Le nom de la colonne doit contenir au moins 2 caractères")
         new_position = position if position is not None else column.position
         _column_repo.update(column_id, name=name, position=new_position)
-        return ModelMapper.to_model(Column, _column_repo.find_by({"id": column_id})[0])
+        updated = ModelMapper.to_model(Column, _column_repo.find_by({"id": column_id})[0])
+        _activity_service.log(board_id, user_id, "column", column_id, updated.name, "updated")
+        return updated
 
     def delete_column(self, board_id: int, column_id: int, user_id: int) -> None:
         column = self.get_column(board_id, column_id, user_id)
         self._require_role(board_id, user_id, "member")
         _column_repo.delete_by_ids([column.id])
+        _activity_service.log(board_id, user_id, "column", column_id, column.name, "deleted")
 
     def reorder_columns(self, board_id: int, ordered_ids: List[int], user_id: int) -> List[Column]:
         self._require_role(board_id, user_id, "member")
@@ -151,3 +164,26 @@ class BoardService:
             raise BusinessError("Les IDs ne correspondent pas aux colonnes de ce board")
         _column_repo.reorder(board_id, ordered_ids)
         return [ModelMapper.to_model(Column, row) for row in _column_repo.find_by_board(board_id)]
+
+    def archive_column(self, board_id: int, column_id: int, user_id: int) -> Column:
+        column = self.get_column(board_id, column_id, user_id)
+        self._require_role(board_id, user_id, "member")
+        _column_repo.archive(column_id)
+        _activity_service.log(board_id, user_id, "column", column_id, column.name, "archived")
+        rows = _column_repo.find_by({"id": column_id})
+        return ModelMapper.to_model(Column, rows[0])
+
+    def unarchive_column(self, board_id: int, column_id: int, user_id: int) -> Column:
+        self._require_role(board_id, user_id, "member")
+        rows = _column_repo.find_by({"id": column_id, "board_id": board_id})
+        if not rows:
+            raise BusinessError(f"Colonne {column_id} non trouvée", status_code=404)
+        col_row = rows[0]
+        _column_repo.unarchive(column_id)
+        _activity_service.log(board_id, user_id, "column", column_id, col_row["name"], "restored")
+        return ModelMapper.to_model(Column, _column_repo.find_by({"id": column_id})[0])
+
+    def list_archived_columns(self, board_id: int, user_id: int) -> List[Column]:
+        self._require_role(board_id, user_id, "viewer")
+        rows = _column_repo.find_archived_by_board(board_id)
+        return [ModelMapper.to_model(Column, row) for row in rows]

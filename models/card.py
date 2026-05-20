@@ -13,3 +13,4 @@ class Card:
     due_date: Optional[date] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None

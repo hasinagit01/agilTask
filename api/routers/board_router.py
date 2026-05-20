@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from api.dependencies import get_current_user
 from models import Card, User
+from schemas.activity_schema import ActivityListResponse, ActivityLogResponse, ActorResponse
 from schemas.board_schema import (
     BoardListResponse,
     BoardResponse,
@@ -42,6 +43,7 @@ from schemas.label_schema import (
     SingleLabelResponse,
     UpdateLabelRequest,
 )
+from services.activity_service import ActivityService
 from services.assignee_service import AssigneeService
 from services.board_service import BoardService
 from services.card_service import CardService
@@ -53,6 +55,7 @@ _service = BoardService()
 _card_service = CardService()
 _label_service = LabelService()
 _assignee_service = AssigneeService()
+_activity_service = ActivityService()
 
 
 def _json(model, status_code: int = 200) -> JSONResponse:
@@ -66,6 +69,15 @@ def _card_json(card: Card, status_code: int = 200) -> JSONResponse:
 def _cards_json(cards) -> JSONResponse:
     data = [CardResponse.model_validate(_card_service.enrich(c)) for c in cards]
     return _json(CardListResponse(data=data))
+
+
+def _column_json(column, status_code: int = 200) -> JSONResponse:
+    return _json(SingleColumnResponse(data=ColumnResponse.model_validate(column)), status_code)
+
+
+def _columns_json(columns) -> JSONResponse:
+    data = [ColumnResponse.model_validate(c) for c in columns]
+    return _json(ColumnListResponse(data=data))
 
 
 # ── Boards ────────────────────────────────────────────────────────────────────
@@ -273,3 +285,65 @@ def add_assignee(board_id: int, column_id: int, card_id: int, user_id: int, curr
 @router.delete("/{board_id}/columns/{column_id}/cards/{card_id}/assignees/{user_id}", tags=["assignees"], summary="Retirer un assignee d'une carte", status_code=204)
 def remove_assignee(board_id: int, column_id: int, card_id: int, user_id: int, current_user: User = Depends(get_current_user)):
     _assignee_service.remove_assignee(board_id=board_id, card_id=card_id, target_user_id=user_id, user_id=current_user.id)
+
+
+# ===== ARCHIVES CARTES =====
+
+@router.patch("/{board_id}/columns/{column_id}/cards/{card_id}/archive", tags=["cards"], summary="Archiver une carte", response_model=SingleCardResponse)
+def archive_card(board_id: int, column_id: int, card_id: int, current_user: User = Depends(get_current_user)):
+    card = _card_service.archive_card(board_id=board_id, column_id=column_id, card_id=card_id, user_id=current_user.id)
+    return _card_json(card)
+
+
+@router.patch("/{board_id}/cards/{card_id}/unarchive", tags=["cards"], summary="Restaurer une carte archivée", response_model=SingleCardResponse)
+def unarchive_card(board_id: int, card_id: int, current_user: User = Depends(get_current_user)):
+    card = _card_service.unarchive_card(board_id=board_id, card_id=card_id, user_id=current_user.id)
+    return _card_json(card)
+
+
+@router.get("/{board_id}/archives/cards", tags=["cards"], summary="Lister les cartes archivées", response_model=CardListResponse)
+def list_archived_cards(board_id: int, current_user: User = Depends(get_current_user)):
+    cards = _card_service.list_archived_cards(board_id=board_id, user_id=current_user.id)
+    return _cards_json(cards)
+
+
+# ===== ARCHIVES COLONNES =====
+
+@router.patch("/{board_id}/columns/{column_id}/archive", tags=["columns"], summary="Archiver une colonne", response_model=SingleColumnResponse)
+def archive_column(board_id: int, column_id: int, current_user: User = Depends(get_current_user)):
+    column = _service.archive_column(board_id=board_id, column_id=column_id, user_id=current_user.id)
+    return _column_json(column)
+
+
+@router.patch("/{board_id}/columns/{column_id}/unarchive", tags=["columns"], summary="Restaurer une colonne archivée", response_model=SingleColumnResponse)
+def unarchive_column(board_id: int, column_id: int, current_user: User = Depends(get_current_user)):
+    column = _service.unarchive_column(board_id=board_id, column_id=column_id, user_id=current_user.id)
+    return _column_json(column)
+
+
+@router.get("/{board_id}/archives/columns", tags=["columns"], summary="Lister les colonnes archivées", response_model=ColumnListResponse)
+def list_archived_columns(board_id: int, current_user: User = Depends(get_current_user)):
+    columns = _service.list_archived_columns(board_id=board_id, user_id=current_user.id)
+    return _columns_json(columns)
+
+
+# ===== ACTIVITE =====
+
+@router.get("/{board_id}/activity", tags=["boards"], summary="Historique d'activité du board", response_model=ActivityListResponse)
+def get_board_activity(board_id: int, current_user: User = Depends(get_current_user)):
+    _service.get_board(board_id=board_id, user_id=current_user.id)
+    activities = _activity_service.get_board_activity(board_id=board_id)
+    data = [
+        ActivityLogResponse(
+            id=a["id"],
+            entity_type=a["entity_type"],
+            entity_id=a["entity_id"],
+            entity_name=a["entity_name"],
+            action=a["action"],
+            meta=a["meta"],
+            created_at=a["created_at"],
+            actor=ActorResponse(**a["actor"]),
+        )
+        for a in activities
+    ]
+    return _json(ActivityListResponse(data=data))

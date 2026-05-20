@@ -1,0 +1,2 @@
+ALTER TABLE cards   ADD COLUMN archived_at DATETIME;
+ALTER TABLE columns ADD COLUMN archived_at DATETIME;
